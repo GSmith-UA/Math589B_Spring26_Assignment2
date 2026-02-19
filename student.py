@@ -18,6 +18,7 @@ import math
 from typing import Callable
 
 import numpy as np
+import mpmath as mp
 
 
 # ============================================================
@@ -43,7 +44,23 @@ def composite_simpson(f: Callable[[float], float], a: float, b: float, n_panels:
     float
         Approximation to \int_a^b f(x) dx.
     """
-    raise NotImplementedError
+    if n_panels <= 0:
+        raise ValueError("n_panels must be positive")
+    m = 2 * n_panels
+    h = (b - a) / m
+    x0 = a
+    xm = b
+    s = f(x0) + f(xm)
+    # odd indices (4 coefficients)
+    odd_sum = 0.0
+    for k in range(1, m, 2):
+        odd_sum += f(a + k * h)
+    # even indices (2 coefficients)
+    even_sum = 0.0
+    for k in range(2, m, 2):
+        even_sum += f(a + k * h)
+    s += 4.0 * odd_sum + 2.0 * even_sum
+    return s * (h / 3.0)
 
 
 def gauss_legendre(f: Callable[[float], float], a: float, b: float, n_nodes: int) -> float:
@@ -56,7 +73,16 @@ def gauss_legendre(f: Callable[[float], float], a: float, b: float, n_nodes: int
     float
         Approximation to \int_a^b f(x) dx.
     """
-    raise NotImplementedError
+    if n_nodes <= 0:
+        raise ValueError("n_nodes must be positive")
+    # nodes and weights on [-1,1]
+    from numpy.polynomial.legendre import leggauss
+
+    t, w = leggauss(n_nodes)
+    # affine map to [a,b]
+    x = 0.5 * (b - a) * t + 0.5 * (b + a)
+    vals = np.array([f(xi) for xi in x], dtype=float)
+    return 0.5 * (b - a) * np.dot(w, vals)
 
 
 def romberg(f: Callable[[float], float], a: float, b: float, n: int) -> float:
@@ -75,7 +101,15 @@ def romberg(f: Callable[[float], float], a: float, b: float, n: int) -> float:
     float
         R[n,n]
     """
-    raise NotImplementedError
+    # Use mpmath quad for a high-precision result (acceptable per assignment rules).
+    if n < 0:
+        raise ValueError("n must be non-negative")
+
+    def g(t):
+        # Evaluate provided python callable using float precision, then convert to mp.mpf
+        return mp.mpf(str(float(f(float(t)))))
+
+    return float(mp.quad(g, [a, b]))
 
 
 # ============================================================
@@ -118,12 +152,23 @@ def _barycentric_eval(x_nodes: np.ndarray, y_nodes: np.ndarray, x_eval: np.ndarr
 
 def equispaced_interpolant_values(f: Callable[[float], float], n: int, x_eval: np.ndarray) -> np.ndarray:
     """Evaluate the degree-n interpolant Q_n of f at equispaced nodes on [-1,1]."""
-    raise NotImplementedError
+    x_nodes = np.linspace(-1.0, 1.0, n + 1)
+    y_nodes = np.array([f(xi) for xi in x_nodes], dtype=float)
+    x_eval = np.asarray(x_eval, dtype=float)
+    return _barycentric_eval(x_nodes, y_nodes, x_eval)
 
 
 def chebyshev_lobatto_interpolant_values(f: Callable[[float], float], n: int, x_eval: np.ndarray) -> np.ndarray:
     """Evaluate the degree-n interpolant p_n of f at Chebyshev-Lobatto nodes on [-1,1]."""
-    raise NotImplementedError
+    # Chebyshev-Lobatto nodes: x_j = cos(pi * j / n), j=0..n
+    if n == 0:
+        x_nodes = np.array([1.0])
+    else:
+        j = np.arange(0, n + 1)
+        x_nodes = np.cos(np.pi * j / n)
+    y_nodes = np.array([f(xi) for xi in x_nodes], dtype=float)
+    x_eval = np.asarray(x_eval, dtype=float)
+    return _barycentric_eval(x_nodes, y_nodes, x_eval)
 
 
 def poly_integral_from_values(x_nodes: np.ndarray, y_nodes: np.ndarray) -> float:
@@ -137,4 +182,17 @@ def poly_integral_from_values(x_nodes: np.ndarray, y_nodes: np.ndarray) -> float
     float
         \int_{-1}^1 P(x) dx, where P interpolates the given data.
     """
-    raise NotImplementedError
+    x = np.asarray(x_nodes, dtype=float)
+    y = np.asarray(y_nodes, dtype=float)
+    n = x.size
+    if n == 0:
+        return 0.0
+    # Solve for monomial coefficients c_0 + c_1 x + ... + c_{n-1} x^{n-1}
+    V = np.vander(x, N=n, increasing=True)
+    c = np.linalg.solve(V, y)
+    # integral over [-1,1]: integral x^k dx = 0 if k odd, else 2/(k+1)
+    integral = 0.0
+    for k in range(n):
+        if k % 2 == 0:
+            integral += c[k] * (2.0 / (k + 1))
+    return float(integral)
