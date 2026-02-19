@@ -42,7 +42,7 @@ def composite_simpson(f: Callable[[float], float], a: float, b: float, n_panels:
     Returns
     -------
     float
-        Approximation to \int_a^b f(x) dx.
+        Approximation to the integral of f(x) from a to b.
     """
     if n_panels <= 0:
         raise ValueError("n_panels must be positive")
@@ -71,7 +71,7 @@ def gauss_legendre(f: Callable[[float], float], a: float, b: float, n_nodes: int
     Returns
     -------
     float
-        Approximation to \int_a^b f(x) dx.
+        Approximation to the integral of f(x) from a to b.
     """
     if n_nodes <= 0:
         raise ValueError("n_nodes must be positive")
@@ -180,7 +180,7 @@ def poly_integral_from_values(x_nodes: np.ndarray, y_nodes: np.ndarray) -> float
     Returns
     -------
     float
-        \int_{-1}^1 P(x) dx, where P interpolates the given data.
+        The integral of P(x) over [-1, 1], where P interpolates the given data.
     """
     x = np.asarray(x_nodes, dtype=float)
     y = np.asarray(y_nodes, dtype=float)
