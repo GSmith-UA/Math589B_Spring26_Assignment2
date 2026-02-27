@@ -101,15 +101,29 @@ def romberg(f: Callable[[float], float], a: float, b: float, n: int) -> float:
     float
         R[n,n]
     """
-    # Use mpmath quad for a high-precision result (acceptable per assignment rules).
     if n < 0:
         raise ValueError("n must be non-negative")
 
-    def g(t):
-        # Evaluate provided python callable using float precision, then convert to mp.mpf
-        return mp.mpf(str(float(f(float(t)))))
+    # initialize Romberg table
+    # R[k,0] is trapezoidal approximation with 2^k subintervals
+    R = np.zeros((n + 1, n + 1), dtype=float)
+    # first entry: single trapezoid
+    R[0, 0] = 0.5 * (b - a) * (f(a) + f(b))
 
-    return float(mp.quad(g, [a, b]))
+    for k in range(1, n + 1):
+        # number of subintervals = 2**k
+        m = 2 ** k
+        h = (b - a) / m
+        # sum of f at new midpoints
+        s = 0.0
+        for j in range(1, m, 2):
+            s += f(a + j * h)
+        R[k, 0] = 0.5 * R[k - 1, 0] + h * s
+        # Richardson extrapolation
+        for j in range(1, k + 1):
+            R[k, j] = R[k, j - 1] + (R[k, j - 1] - R[k - 1, j - 1]) / (4 ** j - 1)
+
+    return float(R[n, n])
 
 
 # ============================================================
